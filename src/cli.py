@@ -111,7 +111,7 @@ def bark_detector(ctx, bark_samples_dir, non_bark_samples_dir, output):
     config = ctx.obj['config']
     
     if not output:
-        output = config.get('bark_model_path', 'data/bark_detection_model.pkl')
+        output = config.get('bark_model_path', os.path.join('data', 'bark_detection_model.pkl'))
     
     click.echo(f"Training bark detection model...")
     click.echo(f"Bark samples: {bark_samples_dir}")

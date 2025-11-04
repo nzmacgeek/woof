@@ -43,15 +43,31 @@ def check_system_dependencies():
     available = {}
     for dep, description in dependencies.items():
         try:
-            subprocess.run([dep, '-version'], 
-                         stdout=subprocess.DEVNULL, 
-                         stderr=subprocess.DEVNULL, 
-                         check=True)
+            # Windows-specific check
+            if platform.system().lower() == 'windows':
+                subprocess.run([dep, '-version'], 
+                             stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL, 
+                             check=True)
+            else:
+                subprocess.run([dep, '-version'], 
+                             stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL, 
+                             check=True)
             print(f"✅ {description} is available")
             available[dep] = True
         except (subprocess.CalledProcessError, FileNotFoundError):
             print(f"⚠️  {description} not found (optional)")
             available[dep] = False
+    
+    # Windows-specific audio dependency check
+    if platform.system().lower() == 'windows':
+        print("\nChecking Windows audio dependencies...")
+        try:
+            import pyaudio
+            print("✅ PyAudio is available")
+        except ImportError:
+            print("⚠️  PyAudio not found - audio capture may not work")
     
     return available
 
@@ -138,9 +154,9 @@ def create_default_config():
         "audio_quality": "medium",
         "save_audio": True,
         "recordings_dir": "recordings",
-        "database_path": "data/bark_events.db",
+        "database_path": os.path.join("data", "bark_events.db"),
         "log_level": "INFO",
-        "log_file": "logs/bark_monitor.log",
+        "log_file": os.path.join("logs", "bark_monitor.log"),
         "enable_alerts": False,
         "alert_intensity_threshold": 80.0,
         "max_dogs": 10,
@@ -187,20 +203,44 @@ def print_usage_instructions():
     print("Quick Start:")
     print("━━━━━━━━━━━")
     print()
-    print("1. Test the system:")
-    print("   python test_enhanced_system.py")
-    print()
-    print("2. Start monitoring (CLI):")
-    print("   python -m src.cli monitor --duration 3600")
-    print()
-    print("3. Launch GUI (if Tkinter available):")
-    print("   python gui.py")
-    print()
-    print("4. List audio devices:")
-    print("   python -m src.cli devices")
-    print()
-    print("5. Generate reports:")
-    print("   python -m src.cli report --help")
+    
+    # Platform-specific instructions
+    system = platform.system().lower()
+    if system == "windows":
+        print("Windows Quick Start:")
+        print("1. Run setup.bat for automated setup (recommended)")
+        print("   setup.bat")
+        print()
+        print("2. Test the system:")
+        print("   python test_enhanced_system.py")
+        print()
+        print("3. Start monitoring:")
+        print("   woof.bat monitor --duration 3600")
+        print()
+        print("4. Launch GUI:")
+        print("   python gui.py")
+        print()
+        print("5. List audio devices:")
+        print("   woof.bat list-devices")
+        print()
+        print("6. Generate reports:")
+        print("   woof.bat report --help")
+    else:
+        print("Unix/Linux Quick Start:")
+        print("1. Test the system:")
+        print("   python test_enhanced_system.py")
+        print()
+        print("2. Start monitoring (CLI):")
+        print("   python -m src.cli monitor --duration 3600")
+        print()
+        print("3. Launch GUI (if Tkinter available):")
+        print("   python gui.py")
+        print()
+        print("4. List audio devices:")
+        print("   python -m src.cli devices")
+        print()
+        print("5. Generate reports:")
+        print("   python -m src.cli report --help")
     print()
     print("Configuration:")
     print("━━━━━━━━━━━━━━")
@@ -242,11 +282,32 @@ def print_system_recommendations():
         print("• Grant microphone permissions in System Preferences")
         
     elif system == "windows":
-        print("Windows detected:")
-        print("• Download FFmpeg from https://ffmpeg.org/download.html")
-        print("• Download LAME from https://lame.sourceforge.io/")
-        print("• Add executables to PATH")
-        print("• Grant microphone permissions in Privacy settings")
+        print("Windows 11 detected:")
+        print("🎯 Windows-specific setup:")
+        print("• Download FFmpeg:")
+        print("  1. Visit https://ffmpeg.org/download.html")
+        print("  2. Download the Windows build")
+        print("  3. Extract to C:\\ffmpeg")
+        print("  4. Add C:\\ffmpeg\\bin to your PATH")
+        print()
+        print("• Alternative: Use Chocolatey package manager:")
+        print("  choco install ffmpeg")
+        print()
+        print("• Grant microphone permissions:")
+        print("  1. Go to Settings > Privacy & Security > Microphone")
+        print("  2. Allow desktop apps to access microphone")
+        print("  3. Ensure Python.exe has microphone access")
+        print()
+        print("• For PyAudio installation issues:")
+        print("  pip install pipwin")
+        print("  pipwin install pyaudio")
+        print()
+        print("• Run setup.bat for automated Windows setup")
+        print("• Use woof.bat instead of woof.sh")
+        print()
+        print("• If you encounter permission issues:")
+        print("  - Run Command Prompt as Administrator")
+        print("  - Consider Windows Defender exclusions for the project folder")
 
 def main():
     """Main installation function."""

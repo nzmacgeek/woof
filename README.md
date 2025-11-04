@@ -66,24 +66,101 @@ Bark Monitor is a comprehensive, AI-enhanced dog barking detection and monitorin
 - 500MB disk space for system
 - Additional space for audio recordings
 
-### Dependencies
+### Windows 11 Installation
 
-#### Core Dependencies
+#### Automated Setup (Recommended)
+1. **Download or clone the project**
+   ```powershell
+   git clone <repository-url>
+   cd bark-monitor
+   ```
+
+2. **Run the Windows setup script**
+   ```powershell
+   setup.bat
+   ```
+   This will automatically:
+   - Create a virtual environment
+   - Install all Python dependencies
+   - Create necessary directories
+   - Set up configuration files
+
+#### Manual Windows Setup
+1. **Install Python dependencies**
+   ```powershell
+   pip install -r requirements.txt
+   ```
+
+2. **Install FFmpeg (for MP3 encoding)**
+   - Option A: Download from https://ffmpeg.org/download.html
+     - Extract to `C:\ffmpeg`
+     - Add `C:\ffmpeg\bin` to your PATH environment variable
+   
+   - Option B: Use Chocolatey (if installed)
+     ```powershell
+     choco install ffmpeg
+     ```
+
+3. **Grant microphone permissions**
+   - Go to Settings > Privacy & Security > Microphone
+   - Enable "Allow desktop apps to access your microphone"
+   - Ensure Python.exe has microphone access
+
+4. **Test installation**
+   ```powershell
+   python setup.py
+   ```
+
+#### Windows Usage
+Use the Windows batch script for all operations:
+```powershell
+# Start monitoring
+woof.bat monitor --duration 3600
+
+# Launch GUI
+python gui.py
+
+# List audio devices
+woof.bat list-devices
+
+# Generate reports
+woof.bat report --days 30
+
+# Show help
+woof.bat help
+```
+
+#### Troubleshooting Windows Issues
+- **PyAudio installation problems**: Try `pip install pipwin` then `pipwin install pyaudio`
+- **Permission issues**: Run Command Prompt as Administrator
+- **Antivirus interference**: Add project folder to Windows Defender exclusions
+- **Microphone not detected**: Check Windows audio settings and drivers
+
+### Linux/macOS Installation
+
+#### Dependencies
+
+##### Core Dependencies
 ```bash
 pip install numpy librosa scikit-learn soundfile pydub click
 ```
 
-#### Optional AI Dependencies (for enhanced detection)
+##### Optional AI Dependencies (for enhanced detection)
 ```bash
 pip install torch torchaudio transformers datasets
 ```
 
-#### System Dependencies
-- **FFmpeg** (for MP3 encoding): `sudo apt-get install ffmpeg`
-- **LAME** (alternative MP3 encoder): `sudo apt-get install lame`
-- **PortAudio** (for audio capture): `sudo apt-get install portaudio19-dev`
+##### System Dependencies
+- **Linux (Ubuntu/Debian)**:
+  ```bash
+  sudo apt-get install ffmpeg lame portaudio19-dev
+  ```
+- **macOS (with Homebrew)**:
+  ```bash
+  brew install ffmpeg lame portaudio
+  ```
 
-### Quick Setup
+#### Quick Setup
 
 1. **Clone/Download the project**
    ```bash
@@ -91,9 +168,10 @@ pip install torch torchaudio transformers datasets
    cd bark-monitor
    ```
 
-2. **Install Python dependencies**
+2. **Run setup script**
    ```bash
-   pip install -r requirements.txt
+   chmod +x setup.sh
+   ./setup.sh
    ```
 
 3. **Test installation**
@@ -107,7 +185,7 @@ pip install torch torchaudio transformers datasets
    python gui.py
    
    # CLI mode
-   python -m src.cli monitor --help
+   ./woof.sh monitor --help
    ```
 
 ## Usage
