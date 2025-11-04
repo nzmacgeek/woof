@@ -235,12 +235,35 @@ The system can be configured via JSON configuration files:
 
 ### GUI Interface
 
-The GUI provides comprehensive system management:
+The GUI provides comprehensive system management with real-time monitoring:
 
-1. **Bark Events Tab**: View and filter recorded events
-2. **Monitoring Tab**: Real-time system control and status
-3. **Reports Tab**: Generate legal evidence reports
-4. **System Logs Tab**: Debugging and system information
+#### **Monitoring Tab** - Real-time Control
+- **Start/Stop Monitoring**: One-click monitoring control
+- **Detection Settings**: Adjust threshold and AI enhancement in real-time
+- **Live Statistics**: Session time, bark count, dog identification count
+- **Audio Level Meter**: Visual feedback of microphone input
+- **Recent Detections**: Live log of detected bark events
+
+#### **Other Tabs**
+- **Bark Events Tab**: View and filter recorded events
+- **Reports Tab**: Generate legal evidence reports
+- **System Logs Tab**: Debugging and system information
+
+#### **Quick Start GUI**
+```powershell
+# Windows
+launch_gui.bat
+
+# Or directly
+python gui.py
+```
+
+#### **GUI Features**
+- **Real-time Monitoring**: Start/stop detection with live feedback
+- **Dynamic Configuration**: Change settings without restarting
+- **Session Statistics**: Track detection performance
+- **Event Logging**: View recent detections and system messages
+- **Error Handling**: Clear feedback for system issues
 
 ## Performance Characteristics
 

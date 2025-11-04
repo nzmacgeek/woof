@@ -134,7 +134,7 @@ class BarkMonitor:
                 self.dog_identifier.load_model(dog_model_path)
             
             # Initialize database
-            db_path = self.config.get('database_path', 'data/bark_events.db')
+            db_path = self.config.get('database_path', os.path.join('data', 'bark_events.db'))
             os.makedirs(os.path.dirname(db_path), exist_ok=True)
             self.database = BarkEventDatabase(db_path)
             
@@ -500,7 +500,7 @@ class BarkMonitor:
         
         # Save models if they were updated
         if self.dog_identifier and len(self.dog_identifier.bark_fingerprints) > 0:
-            dog_model_path = self.config.get('dog_model_path', 'data/dog_identification_model.pkl')
+            dog_model_path = self.config.get('dog_model_path', os.path.join('data', 'dog_identification_model.pkl'))
             os.makedirs(os.path.dirname(dog_model_path), exist_ok=True)
             self.dog_identifier.save_model(dog_model_path)
         
@@ -539,11 +539,11 @@ DEFAULT_CONFIG = {
     'alert_intensity_threshold': 80.0,
     'max_dogs': 10,
     'log_level': 'INFO',
-    'log_file': 'logs/bark_monitor.log',
-    'database_path': 'data/bark_events.db',
+    'log_file': os.path.join('logs', 'bark_monitor.log'),
+    'database_path': os.path.join('data', 'bark_events.db'),
     'recordings_dir': 'recordings',
-    'bark_model_path': 'data/bark_detection_model.pkl',
-    'dog_model_path': 'data/dog_identification_model.pkl'
+    'bark_model_path': os.path.join('data', 'bark_detection_model.pkl'),
+    'dog_model_path': os.path.join('data', 'dog_identification_model.pkl')
 }
 
 

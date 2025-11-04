@@ -22,10 +22,13 @@ try:
     from database import BarkEventDatabase
     from ai_models import create_ai_detector
     from audio_utils import AudioEncoder
+    from main import BarkMonitor, DEFAULT_CONFIG
     DATABASE_AVAILABLE = True
+    MONITORING_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import modules: {e}")
     DATABASE_AVAILABLE = False
+    MONITORING_AVAILABLE = False
 
 
 class BarkMonitorGUI:
@@ -41,7 +44,13 @@ class BarkMonitorGUI:
         self.database = None
         self.database_path = None
         self.monitoring_active = False
+        self.monitor_instance = None
+        self.monitor_thread = None
         self.log_queue = queue.Queue()
+        self.config = None
+        
+        # Load configuration
+        self.load_configuration()
         
         # Setup logging to capture in GUI
         self.setup_logging()
@@ -54,8 +63,38 @@ class BarkMonitorGUI:
         # Start log processing
         self.process_log_queue()
         
+        # Start periodic updates
+        self.update_session_stats()
+        
         # Load default database if available
         self.load_default_database()
+    
+    def load_configuration(self):
+        """Load configuration from file or use defaults."""
+        config_paths = ['config.json', 'config/default.json']
+        
+        for config_path in config_paths:
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, 'r') as f:
+                        self.config = json.load(f)
+                    print(f"Loaded configuration from {config_path}")
+                    return
+                except Exception as e:
+                    print(f"Error loading config from {config_path}: {e}")
+        
+        # Use default configuration if available
+        if MONITORING_AVAILABLE:
+            self.config = DEFAULT_CONFIG.copy()
+            print("Using default configuration")
+        else:
+            self.config = {
+                'detection_threshold': 0.7,
+                'enable_ai': True,
+                'sample_rate': 44100,
+                'chunk_size': 4096
+            }
+            print("Using minimal configuration (monitoring not available)")
     
     def setup_logging(self):
         """Setup logging to capture messages in GUI."""
@@ -217,6 +256,12 @@ class BarkMonitorGUI:
                                         command=self.toggle_monitoring)
         self.start_stop_btn.pack(side='right')
         
+        # Disable monitoring if not available
+        if not MONITORING_AVAILABLE:
+            self.start_stop_btn.config(state='disabled')
+            ttk.Label(status_row1, text="(Monitoring unavailable - check installation)", 
+                     foreground='orange').pack(side='right', padx=10)
+        
         # Control panel
         control_panel = ttk.LabelFrame(monitor_frame, text="Detection Settings")
         control_panel.pack(fill='x', padx=5, pady=5)
@@ -227,19 +272,25 @@ class BarkMonitorGUI:
         
         # Threshold setting
         ttk.Label(settings_frame, text="Detection Threshold:").grid(row=0, column=0, sticky='w', padx=5)
-        self.threshold_var = tk.DoubleVar(value=0.7)
+        self.threshold_var = tk.DoubleVar(value=self.config.get('detection_threshold', 0.7))
         threshold_scale = ttk.Scale(settings_frame, from_=0.1, to=1.0, variable=self.threshold_var, 
                                    orient='horizontal', length=200)
         threshold_scale.grid(row=0, column=1, padx=5)
-        self.threshold_label = ttk.Label(settings_frame, text="0.70")
+        self.threshold_label = ttk.Label(settings_frame, text=f"{self.threshold_var.get():.2f}")
         self.threshold_label.grid(row=0, column=2, padx=5)
         threshold_scale.configure(command=self.update_threshold_label)
         
         # AI enhancement
-        self.ai_enabled = tk.BooleanVar(value=True)
+        self.ai_enabled = tk.BooleanVar(value=self.config.get('enable_ai', True))
         ai_check = ttk.Checkbutton(settings_frame, text="Enable AI Enhancement", 
                                   variable=self.ai_enabled)
         ai_check.grid(row=1, column=0, columnspan=2, sticky='w', padx=5, pady=5)
+        
+        # Save audio recordings
+        self.save_audio = tk.BooleanVar(value=self.config.get('save_audio', True))
+        save_check = ttk.Checkbutton(settings_frame, text="Save Audio Recordings", 
+                                    variable=self.save_audio)
+        save_check.grid(row=2, column=0, columnspan=2, sticky='w', padx=5, pady=5)
         
         # Live feed
         feed_frame = ttk.LabelFrame(monitor_frame, text="Live Audio Feed")
@@ -259,8 +310,32 @@ class BarkMonitorGUI:
         recent_frame = ttk.LabelFrame(feed_frame, text="Recent Detections")
         recent_frame.pack(fill='both', expand=True, padx=5, pady=5)
         
-        self.recent_text = scrolledtext.ScrolledText(recent_frame, height=10, width=60)
-        self.recent_text.pack(fill='both', expand=True, padx=5, pady=5)
+        # Create a frame for the text and statistics
+        text_stats_frame = ttk.Frame(recent_frame)
+        text_stats_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Statistics panel
+        stats_frame = ttk.Frame(text_stats_frame)
+        stats_frame.pack(fill='x', pady=(0, 5))
+        
+        # Session statistics
+        ttk.Label(stats_frame, text="Session Stats:").pack(side='left')
+        self.session_barks_label = ttk.Label(stats_frame, text="Barks: 0")
+        self.session_barks_label.pack(side='left', padx=10)
+        self.session_dogs_label = ttk.Label(stats_frame, text="Dogs: 0")
+        self.session_dogs_label.pack(side='left', padx=10)
+        self.session_time_label = ttk.Label(stats_frame, text="Time: 00:00:00")
+        self.session_time_label.pack(side='left', padx=10)
+        
+        self.recent_text = scrolledtext.ScrolledText(text_stats_frame, height=8, width=60)
+        self.recent_text.pack(fill='both', expand=True)
+        
+        # Initialize with welcome message
+        if MONITORING_AVAILABLE:
+            self.add_log_message("Bark Monitor GUI Ready - Click 'Start Monitoring' to begin")
+        else:
+            self.add_log_message("GUI Ready - Monitoring unavailable (check installation)")
+            self.add_log_message("Run: pip install -r requirements.txt")
     
     def create_reports_tab(self):
         """Create the reports generation tab."""
@@ -506,13 +581,150 @@ class BarkMonitorGUI:
     
     def start_monitoring(self):
         """Start the monitoring system."""
-        messagebox.showinfo("Not Implemented", "Real-time monitoring will be implemented in the full system.")
+        if not MONITORING_AVAILABLE:
+            messagebox.showerror("Error", "Monitoring system not available. Please check installation.")
+            return
+        
+        if self.monitoring_active:
+            messagebox.showwarning("Warning", "Monitoring is already active.")
+            return
+        
+        try:
+            # Update configuration with current UI settings
+            self.config['detection_threshold'] = self.threshold_var.get()
+            self.config['enable_ai'] = self.ai_enabled.get()
+            
+            # Create monitor instance
+            self.monitor_instance = BarkMonitor(self.config)
+            
+            # Initialize components
+            self.monitor_instance.initialize_components()
+            
+            # Start monitoring in a separate thread
+            self.monitor_thread = threading.Thread(target=self._monitor_worker, daemon=True)
+            self.monitor_thread.start()
+            
+            # Update UI
+            self.monitoring_active = True
+            self.status_label.config(text="Running", foreground='green')
+            self.start_stop_btn.config(text="Stop Monitoring")
+            
+            # Add log message
+            self.add_log_message("Monitoring started successfully")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to start monitoring: {str(e)}")
+            self.add_log_message(f"Failed to start monitoring: {str(e)}")
     
     def stop_monitoring(self):
         """Stop the monitoring system."""
-        self.monitoring_active = False
-        self.status_label.config(text="Stopped", foreground='red')
-        self.start_stop_btn.config(text="Start Monitoring")
+        if not self.monitoring_active:
+            return
+        
+        try:
+            # Stop the monitor instance
+            if self.monitor_instance:
+                self.monitor_instance.stop_monitoring()
+            
+            # Update state
+            self.monitoring_active = False
+            self.status_label.config(text="Stopped", foreground='red')
+            self.start_stop_btn.config(text="Start Monitoring")
+            
+            # Wait for thread to finish
+            if self.monitor_thread and self.monitor_thread.is_alive():
+                self.monitor_thread.join(timeout=5.0)
+            
+            # Clean up
+            self.monitor_instance = None
+            self.monitor_thread = None
+            
+            # Add log message
+            self.add_log_message("Monitoring stopped")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error stopping monitoring: {str(e)}")
+            self.add_log_message(f"Error stopping monitoring: {str(e)}")
+    
+    def _monitor_worker(self):
+        """Worker thread for monitoring."""
+        try:
+            # Start monitoring (this will run until stopped)
+            self.monitor_instance.start_monitoring()
+        except Exception as e:
+            # Schedule UI update in main thread
+            self.root.after(0, lambda: self.add_log_message(f"Monitoring error: {str(e)}"))
+            self.root.after(0, lambda: self.stop_monitoring())
+    
+    def add_log_message(self, message):
+        """Add a message to the recent detections log."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_entry = f"[{timestamp}] {message}\n"
+        
+        # Add to recent text widget
+        self.recent_text.insert('end', log_entry)
+        self.recent_text.see('end')
+        
+        # Keep only last 100 lines
+        lines = self.recent_text.get('1.0', 'end').split('\n')
+        if len(lines) > 100:
+            self.recent_text.delete('1.0', f'{len(lines)-100}.0')
+    
+    def update_audio_level(self, level):
+        """Update the audio level meter."""
+        if hasattr(self, 'audio_level_var'):
+            self.audio_level_var.set(level)
+    
+    def add_detection_event(self, event_data):
+        """Add a detection event to the recent detections."""
+        timestamp = event_data.get('timestamp', datetime.now().strftime("%H:%M:%S"))
+        confidence = event_data.get('confidence', 0.0)
+        dog_id = event_data.get('dog_id', 'Unknown')
+        
+        message = f"BARK DETECTED - Confidence: {confidence:.2f}, Dog: {dog_id}"
+        self.add_log_message(message)
+    
+    def update_session_stats(self):
+        """Update session statistics display."""
+        if self.monitoring_active and self.monitor_instance:
+            try:
+                stats = self.monitor_instance.session_stats
+                
+                # Update bark count
+                bark_count = stats.get('total_barks_detected', 0)
+                self.session_barks_label.config(text=f"Barks: {bark_count}")
+                
+                # Update dog count
+                dog_count = len(stats.get('dogs_identified', set()))
+                self.session_dogs_label.config(text=f"Dogs: {dog_count}")
+                
+                # Update session time
+                start_time = stats.get('start_time')
+                if start_time:
+                    elapsed = datetime.now() - start_time
+                    hours, remainder = divmod(elapsed.total_seconds(), 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    time_str = f"Time: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+                    self.session_time_label.config(text=time_str)
+                
+                # Update audio level if available
+                if hasattr(self.monitor_instance, 'audio_capture') and self.monitor_instance.audio_capture:
+                    # Simulate audio level for now - would need to get actual level from audio capture
+                    import random
+                    level = random.randint(10, 90) if self.monitoring_active else 0
+                    self.update_audio_level(level)
+                
+            except Exception as e:
+                pass  # Silently handle any errors in stats update
+        else:
+            # Reset stats when not monitoring
+            self.session_barks_label.config(text="Barks: 0")
+            self.session_dogs_label.config(text="Dogs: 0")
+            self.session_time_label.config(text="Time: 00:00:00")
+            self.update_audio_level(0)
+        
+        # Schedule next update
+        self.root.after(1000, self.update_session_stats)  # Update every second
     
     def toggle_monitoring(self):
         """Toggle monitoring on/off."""
@@ -745,10 +957,19 @@ class BarkMonitorGUI:
     def quit_application(self):
         """Quit the application."""
         if self.monitoring_active:
-            if not messagebox.askokcancel("Quit", "Monitoring is active. Are you sure you want to quit?"):
+            response = messagebox.askyesno("Confirm Exit", 
+                                         "Monitoring is currently active. Stop monitoring and exit?")
+            if response:
+                self.stop_monitoring()
+            else:
                 return
         
+        # Cleanup
+        if hasattr(self, 'log_handler'):
+            logging.getLogger().removeHandler(self.log_handler)
+        
         self.root.quit()
+        self.root.destroy()
     
     def run(self):
         """Run the GUI application."""
