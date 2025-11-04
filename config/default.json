@@ -1,0 +1,17 @@
+{
+  "sample_rate": 44100,
+  "chunk_size": 4096,
+  "buffer_duration": 10.0,
+  "detection_threshold": 0.5,
+  "bark_threshold": 0.7,
+  "save_audio": true,
+  "enable_alerts": true,
+  "alert_intensity_threshold": 80.0,
+  "max_dogs": 10,
+  "log_level": "INFO",
+  "log_file": "logs/bark_monitor.log",
+  "database_path": "data/bark_events.db",
+  "recordings_dir": "recordings",
+  "bark_model_path": "data/bark_detection_model.pkl",
+  "dog_model_path": "data/dog_identification_model.pkl"
+}
